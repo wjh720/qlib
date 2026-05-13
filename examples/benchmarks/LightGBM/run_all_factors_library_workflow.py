@@ -436,7 +436,13 @@ def _build_feature_label_frames(
     feature_series = []
     for idx, factor in enumerate(factors, start=1):
         expr = _normalize_expr(factor["factor_expression"])
-        result = eval(expr, env, {})
+        try:
+            result = eval(expr, env, {})
+        except Exception as exc:
+            print(f"failed factor: {factor['factor_name']}", flush=True)
+            print(f"raw expr: {factor['factor_expression']}", flush=True)
+            print(f"normalized expr: {expr}", flush=True)
+            raise
         if not isinstance(result, pd.DataFrame):
             raise TypeError(f"{factor['factor_name']} did not evaluate to DataFrame")
         feature_series.append(_stack_panel(result, factor["factor_name"]))
