@@ -320,6 +320,7 @@ def _parenthesize_logical_current_level(expr: str) -> str:
 
 
 def _convert_ternary(expr: str) -> str:
+    expr = _convert_ternary_in_parentheses(expr)
     q_pos = _find_top_level_char(expr, "?")
     if q_pos == -1:
         return expr
@@ -328,6 +329,23 @@ def _convert_ternary(expr: str) -> str:
     left = _convert_ternary(expr[q_pos + 1 : c_pos].strip())
     right = _convert_ternary(expr[c_pos + 1 :].strip())
     return f"IF({cond}, {left}, {right})"
+
+
+def _convert_ternary_in_parentheses(expr: str) -> str:
+    result = []
+    idx = 0
+    while idx < len(expr):
+        ch = expr[idx]
+        if ch != "(":
+            result.append(ch)
+            idx += 1
+            continue
+
+        end_idx = _find_matching_right_paren(expr, idx)
+        inner = expr[idx + 1 : end_idx]
+        result.append(f"({_convert_ternary(inner)})")
+        idx = end_idx + 1
+    return "".join(result)
 
 
 def _find_top_level_char(expr: str, target: str) -> int:
