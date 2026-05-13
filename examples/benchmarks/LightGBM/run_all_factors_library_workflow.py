@@ -330,7 +330,10 @@ def _stack_panel(panel: pd.DataFrame, name: str) -> pd.Series:
     panel = panel.copy()
     panel.index.name = "datetime"
     panel.columns.name = "instrument"
-    return panel.stack(dropna=False).rename(name)
+    try:
+        return panel.stack(future_stack=True).rename(name)
+    except TypeError:
+        return panel.stack(dropna=False).rename(name)
 
 
 def _load_factor_library(path: Path) -> List[dict]:
