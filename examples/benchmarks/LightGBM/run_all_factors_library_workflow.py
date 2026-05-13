@@ -280,6 +280,9 @@ def _normalize_expr(expr: str) -> str:
 def _convert_logical_expr(expr: str) -> str:
     expr = expr.strip()
     expr = _convert_logical_in_parentheses(expr)
+    parts = _split_top_level_commas(expr)
+    if len(parts) > 1:
+        return ", ".join(_parenthesize_logical_current_level(part.strip()) for part in parts)
     return _parenthesize_logical_current_level(expr)
 
 
@@ -364,6 +367,22 @@ def _find_top_level_operator(expr: str, operator: str) -> int:
             return idx
         idx += 1
     return -1
+
+
+def _split_top_level_commas(expr: str) -> list[str]:
+    depth = 0
+    start = 0
+    parts = []
+    for idx, ch in enumerate(expr):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(expr[start:idx])
+            start = idx + 1
+    parts.append(expr[start:])
+    return parts
 
 
 def _find_matching_colon(expr: str, q_pos: int) -> int:
