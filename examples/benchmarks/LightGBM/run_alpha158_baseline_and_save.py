@@ -48,6 +48,14 @@ def parse_args():
     )
     parser.add_argument("--experiment-name", default="alpha158_baseline")
     parser.add_argument("--uri-folder", default="mlruns")
+    parser.add_argument("--data-start", default="2016-01-01")
+    parser.add_argument("--data-end", default="2025-12-26")
+    parser.add_argument("--train-start", default="2016-01-01")
+    parser.add_argument("--train-end", default="2020-12-31")
+    parser.add_argument("--valid-start", default="2021-01-01")
+    parser.add_argument("--valid-end", default="2021-12-31")
+    parser.add_argument("--test-start", default="2022-01-01")
+    parser.add_argument("--test-end", default="2025-12-26")
     parser.add_argument(
         "--output",
         default="alpha158_baseline_metrics.json",
@@ -56,12 +64,37 @@ def parse_args():
     return parser.parse_args()
 
 
+def override_date_config(config: dict, args) -> None:
+    handler_kwargs = config["task"]["dataset"]["kwargs"]["handler"]["kwargs"]
+    handler_kwargs["start_time"] = args.data_start
+    handler_kwargs["end_time"] = args.data_end
+    if "fit_start_time" in handler_kwargs:
+        handler_kwargs["fit_start_time"] = args.train_start
+    if "fit_end_time" in handler_kwargs:
+        handler_kwargs["fit_end_time"] = args.train_end
+
+    segments = config["task"]["dataset"]["kwargs"]["segments"]
+    segments["train"] = [args.train_start, args.train_end]
+    segments["valid"] = [args.valid_start, args.valid_end]
+    segments["test"] = [args.test_start, args.test_end]
+
+    port_cfg = None
+    for record in config["task"].get("record", []):
+        if record.get("class") == "PortAnaRecord":
+            port_cfg = record["kwargs"]["config"]
+            break
+    if port_cfg is not None:
+        port_cfg["backtest"]["start_time"] = args.test_start
+        port_cfg["backtest"]["end_time"] = args.test_end
+
+
 def main():
     args = parse_args()
     config_path = Path(args.config).resolve()
     output_path = Path(args.output).resolve()
 
     config = load_config(config_path)
+    override_date_config(config, args)
     experiment_name = config.get("experiment_name", args.experiment_name)
 
     init_qlib(config, args.uri_folder)
