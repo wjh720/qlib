@@ -273,8 +273,47 @@ def IF(cond, left, right):
 
 def _normalize_expr(expr: str) -> str:
     expr = _convert_ternary(expr)
-    expr = expr.replace("&&", " & ").replace("||", " | ")
+    expr = _convert_logical_expr(expr)
     return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", lambda m: f'FIELDS["{m.group(1)}"]', expr)
+
+
+def _convert_logical_expr(expr: str) -> str:
+    expr = expr.strip()
+    expr = _convert_logical_in_parentheses(expr)
+    return _parenthesize_logical_current_level(expr)
+
+
+def _convert_logical_in_parentheses(expr: str) -> str:
+    result = []
+    idx = 0
+    while idx < len(expr):
+        ch = expr[idx]
+        if ch != "(":
+            result.append(ch)
+            idx += 1
+            continue
+
+        end_idx = _find_matching_right_paren(expr, idx)
+        inner = expr[idx + 1 : end_idx]
+        result.append(f"({_convert_logical_expr(inner)})")
+        idx = end_idx + 1
+    return "".join(result)
+
+
+def _parenthesize_logical_current_level(expr: str) -> str:
+    pos = _find_top_level_operator(expr, "||")
+    if pos != -1:
+        left = _parenthesize_logical_current_level(expr[:pos])
+        right = _parenthesize_logical_current_level(expr[pos + 2 :])
+        return f"(({left.strip()}) | ({right.strip()}))"
+
+    pos = _find_top_level_operator(expr, "&&")
+    if pos != -1:
+        left = _parenthesize_logical_current_level(expr[:pos])
+        right = _parenthesize_logical_current_level(expr[pos + 2 :])
+        return f"(({left.strip()}) & ({right.strip()}))"
+
+    return expr
 
 
 def _convert_ternary(expr: str) -> str:
@@ -297,6 +336,33 @@ def _find_top_level_char(expr: str, target: str) -> int:
             depth -= 1
         elif ch == target and depth == 0:
             return idx
+    return -1
+
+
+def _find_matching_right_paren(expr: str, left_idx: int) -> int:
+    depth = 0
+    for idx in range(left_idx, len(expr)):
+        if expr[idx] == "(":
+            depth += 1
+        elif expr[idx] == ")":
+            depth -= 1
+            if depth == 0:
+                return idx
+    raise ValueError(f"Unmatched parentheses in expression: {expr}")
+
+
+def _find_top_level_operator(expr: str, operator: str) -> int:
+    depth = 0
+    idx = 0
+    while idx <= len(expr) - len(operator):
+        ch = expr[idx]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif depth == 0 and expr[idx : idx + len(operator)] == operator:
+            return idx
+        idx += 1
     return -1
 
 
