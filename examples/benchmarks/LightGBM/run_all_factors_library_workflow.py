@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -499,14 +499,14 @@ def parse_args():
     parser.add_argument("--region", default="cn")
     parser.add_argument("--market", default="csi300")
     parser.add_argument("--benchmark", default="SH000300")
-    parser.add_argument("--start-time", default="2008-01-01")
-    parser.add_argument("--end-time", default="2020-08-01")
-    parser.add_argument("--train-start", default="2008-01-01")
-    parser.add_argument("--train-end", default="2014-12-31")
-    parser.add_argument("--valid-start", default="2015-01-01")
-    parser.add_argument("--valid-end", default="2016-12-31")
-    parser.add_argument("--test-start", default="2017-01-01")
-    parser.add_argument("--test-end", default="2020-08-01")
+    parser.add_argument("--start-time", default="2016-01-01")
+    parser.add_argument("--end-time", default="2025-12-26")
+    parser.add_argument("--train-start", default="2016-01-01")
+    parser.add_argument("--train-end", default="2020-12-31")
+    parser.add_argument("--valid-start", default="2021-01-01")
+    parser.add_argument("--valid-end", default="2021-12-31")
+    parser.add_argument("--test-start", default="2022-01-01")
+    parser.add_argument("--test-end", default="2025-12-26")
     parser.add_argument("--topk", type=int, default=50)
     parser.add_argument("--n-drop", type=int, default=5)
     parser.add_argument("--account", type=float, default=100000000.0)
@@ -518,11 +518,17 @@ def parse_args():
         default="",
         help="Optional pickle path for caching the merged feature/label dataframe",
     )
+    parser.add_argument(
+        "--output",
+        default="all_factors_library_metrics.json",
+        help="Path to save summary metrics json.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    output_path = Path(args.output).resolve()
 
     exp_manager = copy.deepcopy(C["exp_manager"])
     exp_manager["kwargs"]["uri"] = "file:" + str(Path(os.getcwd()).resolve() / args.uri_folder)
@@ -569,6 +575,45 @@ def main():
         SignalRecord(model, dataset, recorder).generate()
         SigAnaRecord(recorder, ana_long_short=False, ann_scaler=252).generate()
         PortAnaRecord(recorder, port_analysis_config, "day").generate()
+
+        metrics = recorder.list_metrics()
+        params = recorder.list_params()
+        summary = {
+            "run_id": recorder.id,
+            "experiment_id": recorder.experiment_id,
+            "factor_json": str(factor_path),
+            "factor_count": len(factors),
+            "segments": {
+                "train": [args.train_start, args.train_end],
+                "valid": [args.valid_start, args.valid_end],
+                "test": [args.test_start, args.test_end],
+            },
+            "metrics": {
+                "IC": metrics.get("IC"),
+                "ICIR": metrics.get("ICIR"),
+                "Rank IC": metrics.get("Rank IC"),
+                "Rank ICIR": metrics.get("Rank ICIR"),
+                "1day.excess_return_with_cost.annualized_return": metrics.get(
+                    "1day.excess_return_with_cost.annualized_return"
+                ),
+                "1day.excess_return_with_cost.information_ratio": metrics.get(
+                    "1day.excess_return_with_cost.information_ratio"
+                ),
+                "1day.excess_return_with_cost.max_drawdown": metrics.get(
+                    "1day.excess_return_with_cost.max_drawdown"
+                ),
+            },
+            "all_metrics": metrics,
+            "params": params,
+            "artifacts": recorder.list_artifacts(),
+        }
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False, default=str))
+
+        print(f"saved metrics to {output_path}")
+        print(f"run_id={recorder.id}")
+        print(f"IC={summary['metrics']['IC']}")
+        print(f"Rank IC={summary['metrics']['Rank IC']}")
 
 
 if __name__ == "__main__":
