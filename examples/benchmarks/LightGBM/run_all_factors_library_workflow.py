@@ -321,6 +321,9 @@ def _parenthesize_logical_current_level(expr: str) -> str:
 
 def _convert_ternary(expr: str) -> str:
     expr = _convert_ternary_in_parentheses(expr)
+    parts = _split_top_level_commas(expr)
+    if len(parts) > 1:
+        return ", ".join(_convert_ternary(part.strip()) for part in parts)
     q_pos = _find_top_level_char(expr, "?")
     if q_pos == -1:
         return expr
