@@ -341,6 +341,7 @@ def _load_factor_library(path: Path) -> List[dict]:
 
 
 def _load_base_fields(instruments: str, start_time: str, end_time: str) -> Dict[str, pd.DataFrame]:
+    instruments = D.instruments(instruments)
     raw = D.features(instruments, ["$open", "$close", "$high", "$low", "$volume"], start_time, end_time)
     raw = _to_datetime_instrument_index(raw)
 
