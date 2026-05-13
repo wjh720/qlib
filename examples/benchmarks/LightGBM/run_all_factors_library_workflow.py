@@ -272,19 +272,9 @@ def IF(cond, left, right):
 
 
 def _normalize_expr(expr: str) -> str:
-    expr = _convert_logical_ops(expr)
     expr = _convert_ternary(expr)
+    expr = expr.replace("&&", " & ").replace("||", " | ")
     return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", lambda m: f'FIELDS["{m.group(1)}"]', expr)
-
-
-def _convert_logical_ops(expr: str) -> str:
-    for op, py_op in (("&&", "&"), ("||", "|")):
-        pos = _find_top_level_token(expr, op)
-        if pos != -1:
-            left = _convert_logical_ops(expr[:pos].strip())
-            right = _convert_logical_ops(expr[pos + len(op) :].strip())
-            return f"(({left}) {py_op} ({right}))"
-    return expr
 
 
 def _convert_ternary(expr: str) -> str:
@@ -307,25 +297,6 @@ def _find_top_level_char(expr: str, target: str) -> int:
             depth -= 1
         elif ch == target and depth == 0:
             return idx
-    return -1
-
-
-def _find_top_level_token(expr: str, token: str) -> int:
-    depth = 0
-    idx = 0
-    while idx <= len(expr) - len(token):
-        ch = expr[idx]
-        if ch == "(":
-            depth += 1
-            idx += 1
-            continue
-        if ch == ")":
-            depth -= 1
-            idx += 1
-            continue
-        if depth == 0 and expr[idx : idx + len(token)] == token:
-            return idx
-        idx += 1
     return -1
 
 
